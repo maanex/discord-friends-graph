@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fren!</title>
+  <script src="https://d3js.org/d3.v6.min.js"></script>
+</head>
+<body>
+  
+</body>
+<style>
+
+.links line {
+  stroke: #999;
+  stroke-opacity: 0.6;
+}
+
+.nodes circle {
+  stroke: #fff;
+  stroke-width: 1.5px;
+}
+
+text {
+  font-family: sans-serif;
+  font-size: 10px;
+}
+
+</style>
+<script>
+const height = 600 * 1.3
+const width = 1220 * 1.3
+
+async function loadRelationships() {
+  const csv = await fetch('./out.csv')
+    .then(res => res.text())
+    .then(text => text.split('\n').filter(t => !!t))
+  const mappings = await fetch('./out-mappings.csv')
+    .then(res => res.text())
+    .then(text => text.split('\n').filter(t => !!t).map(l => l.split(',')))
+
+  const names = mappings
+    .reduce((prev, [ user, name ]) => ({ ...prev, [user]: name }), {})
+
+  const getName = (id) => id.startsWith('@') ? 'YOU' : (names[id] || id)
+ 
+  let nodes = []
+  for (const line of csv) {
+    const user = getName(line.split(',')[0])
+    if (!nodes.includes(user)) nodes.push(user)
+  }
+
+  nodes = nodes.map(n => ({
+    id: n,
+    totalProp: -1.5,
+    color: (n => {
+      return 'gray'
+    })(n)
+  }))
+
+  for (const line of csv) {
+    const [ user, ...friends ] = line.split(',')
+    for (const friend of friends) {
+      if (!friend) continue
+      const name = getName(friend)
+      nodes.find(n => n.id === name).totalProp += 6 / Math.abs(nodes.find(n => n.id === name).totalProp)
+    }
+  }
+
+  nodes[0].totalProp = 15
+
+  let links = []
+  for (const line of csv) {
+    const [ user, ...friends ] = line.split(',')
+    const name = getName(user)
+    for (const friend of friends) {
+      if (!friend) continue
+      links.push({ source: name, target: getName(friend), value: 1 })
+    }
+  }
+
+  return { nodes, links }
+}
+
+const drag = simulation => {
+  function dragstarted(event) {
+    if (!event.active) simulation.alphaTarget(0.3).restart();
+    event.subject.fx = event.subject.x;
+    event.subject.fy = event.subject.y;
+  }
+  
+  function dragged(event) {
+    event.subject.fx = event.x;
+    event.subject.fy = event.y;
+  }
+  
+  function dragended(event) {
+    if (!event.active) simulation.alphaTarget(0);
+    event.subject.fx = null;
+    event.subject.fy = null;
+  }
+  
+  return d3.drag()
+      .on("start", dragstarted)
+      .on("drag", dragged)
+      .on("end", dragended);
+}
+
+function linkArc(d) {
+  const r = Math.hypot(d.target.x - d.source.x, d.target.y - d.source.y);
+  return `
+    M${d.source.x},${d.source.y}
+    A${r},${r} 0 0,1 ${d.target.x},${d.target.y}
+  `;
+}
+
+function chart(data) {
+  const links = data.links.map(d => Object.create(d));
+  const nodes = data.nodes.map(d => Object.create(d));
+
+  const simulation = d3.forceSimulation(nodes)
+      .force("link", d3.forceLink(links).id(d => d.id))
+      .force("charge", d3.forceManyBody().strength(-300))
+      .force("x", d3.forceX())
+      .force("y", d3.forceY());
+
+  const svg = d3.create("svg")
+      .attr("viewBox", [-width / 2, -height / 2, width, height])
+      .style("font", "12px sans-serif");
+
+  svg.append("defs").selectAll("marker")
+    .data([{}])
+    .join("marker")
+      .attr("id", `arrow`)
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 15)
+      .attr("refY", -0.5)
+      .attr("markerWidth", 6)
+      .attr("markerHeight", 6)
+      .attr("orient", "auto")
+    .append("path")
+      .attr("fill", 'lightgray')
+      .attr("d", "M0,-5L10,0L0,5");
+
+  const link = svg.append("g")
+      .attr("fill", "none")
+      .attr("stroke-width", 1.5)
+    .selectAll("path")
+    .data(links)
+    .join("path")
+      .attr("stroke", "lightgray")
+      .attr("marker-end", `url(#arrow)`);
+
+  const node = svg.append("g")
+      .attr("fill", "currentColor")
+      .attr("stroke-linecap", "round")
+      .attr("stroke-linejoin", "round")
+    .selectAll("g")
+    .data(nodes)
+    .join("g")
+      .call(drag(simulation));
+
+  node
+    .on('mouseover', function (d, i) {
+      node.attr("fill", "#B8B8B877")
+      d3.select(this).attr('fill', '#000000')
+      link
+        .attr('stroke', function (link_d) { return link_d.source.index === d.id.index || link_d.target.index === d.id.index ? 'red' : '#b8b8b877';})
+        .attr('stroke-width', function (link_d) { return link_d.source.index === d.index || link_d.target.index === d.id.index ? 4 : .5;})
+    })
+    .on('mouseout', function (d) {
+      node.attr("fill", "currentColor")
+      link
+        .attr('stroke', 'lightgray')
+        .attr('stroke-width', 1.5)
+    })
+
+  node.append("circle")
+      .attr("fill", d => d.color)
+      .attr("stroke", "white")
+      .attr("stroke-width", 1.5)
+      .attr("r", d => d.totalProp);
+
+  node.append("text")
+      .attr("x", 8)
+      .attr("y", "0.31em")
+      .text(d => d.id)
+    .clone(true).lower()
+      .attr("fill", "none")
+      .attr("stroke", "white")
+      .attr("stroke-width", 3);
+
+  simulation.on("tick", () => {
+    link.attr("d", linkArc);
+    node.attr("transform", d => `translate(${d.x},${d.y})`);
+  });
+
+  // invalidation.then(() => simulation.stop());
+
+  return svg.node();
+}
+
+async function run() {
+  const data = await loadRelationships()
+  document.body.appendChild(chart(data))
+}
+run()
+</script>
+</html>
