@@ -28,7 +28,18 @@ async function analyze(user) {
 
 async function fetchUser(id) {
   const { data } = await require('axios').get(`https://canary.discord.com/api/v9/users/${id}/relationships`, {
-    headers: { Authorization: token }
+    headers: {
+      authorization: token,
+      accept: '*/*',
+      'accept-encoding': 'gzip, deflate, br',
+      'accept-language': 'en-GB',
+      referer: 'https://discord.com/channels/@me',
+      'sec-fetch-dest': 'empty',
+      'sec-fetch-mode': 'cors',
+      'sec-fetch-site': 'same-origin',
+      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) discord/1.0.43 Chrome/91.0.4472.164 Electron/13.6.6 Safari/537.36',
+      'x-discord-locale': 'en-GB'
+    }
   })
   return data
 }
