@@ -11,6 +11,10 @@
   
 </body>
 <style>
+body {
+  margin: 0;
+  padding: 0;
+}
 
 .links line {
   stroke: #999;
@@ -20,6 +24,14 @@
 .nodes circle {
   stroke: #fff;
   stroke-width: 1.5px;
+}
+
+g circle {
+  cursor: grab;
+}
+
+g circle:active {
+  cursor: grabbing;
 }
 
 text {
@@ -32,6 +44,11 @@ text {
 const height = 600 * 1.3
 const width = 1220 * 1.3
 
+let config = {
+  showNames: true,
+  zoom: 1
+}
+
 async function loadRelationships() {
   const csv = await fetch('./out.csv')
     .then(res => res.text())
@@ -43,40 +60,47 @@ async function loadRelationships() {
   const names = mappings
     .reduce((prev, [ user, name ]) => ({ ...prev, [user]: name }), {})
 
-  const getName = (id) => id.startsWith('@') ? 'YOU' : (names[id] || id)
+  const getName = (id) => id.startsWith('@') ? '' : (names[id] || id)
  
   let nodes = []
   for (const line of csv) {
-    const user = getName(line.split(',')[0])
-    if (!nodes.includes(user)) nodes.push(user)
+    const id = line.split(',')[0]
+    if (!nodes.includes(id)) nodes.push(id)
   }
 
-  nodes = nodes.map(n => ({
-    id: n,
-    totalProp: -1.5,
+  nodes = nodes.map(id => ({
+    id,
+    name: getName(id),
+    affiliates: [],
+    totalProp: 1,
     color: (n => {
-      return 'gray'
-    })(n)
+      return n.startsWith('@') ? 'orange' : 'gray'
+    })(id)
   }))
 
   for (const line of csv) {
     const [ user, ...friends ] = line.split(',')
+    const userNode = nodes.find(n => n.id === user)
     for (const friend of friends) {
       if (!friend) continue
-      const name = getName(friend)
-      nodes.find(n => n.id === name).totalProp += 6 / Math.abs(nodes.find(n => n.id === name).totalProp)
+      userNode.totalProp += 6
+      userNode.affiliates.push(friend)
     }
+    userNode.totalProp = Math.sqrt(userNode.totalProp) * 2
   }
 
   nodes[0].totalProp = 15
 
+  const linesFound = new Set()
   let links = []
   for (const line of csv) {
     const [ user, ...friends ] = line.split(',')
-    const name = getName(user)
     for (const friend of friends) {
       if (!friend) continue
-      links.push({ source: name, target: getName(friend), value: 1 })
+      const setKey = user < friend ? `${user}-${friend}` : `${friend}-${user}`
+      if (linesFound.has(setKey)) continue
+      linesFound.add(setKey)
+      links.push({ source: user, target: friend, value: 1 })
     }
   }
 
@@ -146,31 +170,51 @@ function chart(data) {
   const link = svg.append("g")
       .attr("fill", "none")
       .attr("stroke-width", 1.5)
+      .attr('data-type', 'link')
     .selectAll("path")
     .data(links)
     .join("path")
       .attr("stroke", "lightgray")
-      .attr("marker-end", `url(#arrow)`);
 
   const node = svg.append("g")
       .attr("fill", "currentColor")
       .attr("stroke-linecap", "round")
       .attr("stroke-linejoin", "round")
+      .attr('data-type', 'node')
     .selectAll("g")
     .data(nodes)
     .join("g")
       .call(drag(simulation));
 
   node
-    .on('mouseover', function (d, i) {
-      node.attr("fill", "#B8B8B877")
-      d3.select(this).attr('fill', '#000000')
+    .on('mouseover', function (d, e) {
+      // node.attr("fill", "#B8B8B877")
+      // d3.select(this).attr('fill', '#000000')
+      node
+        .attr('fill', (a) => (
+          (a.index === e.index)
+            ? '#000000'
+            : (a.affiliates.includes(e.id))
+              ? '#000000'
+              : '#d1d1d1'
+        ))
+        .selectAll('circle')
+        .attr('fill', (a) => (
+          (a.index === e.index)
+            ? '#22be47'
+            : (a.affiliates.includes(e.id))
+              ? '#22be47'
+              : '#d1d1d1'
+        ))
       link
-        .attr('stroke', function (link_d) { return link_d.source.index === d.id.index || link_d.target.index === d.id.index ? 'red' : '#b8b8b877';})
-        .attr('stroke-width', function (link_d) { return link_d.source.index === d.index || link_d.target.index === d.id.index ? 4 : .5;})
+        .attr('stroke', (a) => (a.source.index === e.index || a.target.index === e.index ? '#22be47' : '#b8b8b877'))
+        .attr('stroke-width', (a) => (a.source.index === e.index || a.target.index === e.index ? 2 : .5))
     })
     .on('mouseout', function (d) {
-      node.attr("fill", "currentColor")
+      node
+        .attr("fill", '#555555')
+        .selectAll('circle')
+        .attr("fill", d => d.color)
       link
         .attr('stroke', 'lightgray')
         .attr('stroke-width', 1.5)
@@ -185,7 +229,7 @@ function chart(data) {
   node.append("text")
       .attr("x", 8)
       .attr("y", "0.31em")
-      .text(d => d.id)
+      .text(d => (config.showNames ? d.name : ''))
     .clone(true).lower()
       .attr("fill", "none")
       .attr("stroke", "white")
@@ -199,6 +243,38 @@ function chart(data) {
   // invalidation.then(() => simulation.stop());
 
   return svg.node();
+}
+
+function applyZoom() {
+  const w = width * config.zoom
+  const h = height * config.zoom
+  d3
+    .select('svg')
+    .attr('viewBox', [-w / 2, -h / 2, w, h])
+}
+
+window.onkeydown = e => {
+  switch (e.key) {
+    case ' ': {
+      config.showNames = !config.showNames
+      d3.selectAll("svg g[data-type=\"node\"] text").each(function(d, i) {
+        d3
+          .select(this)
+          .text(config.showNames ? d.name : undefined)
+      })
+      break;
+    }
+    case '+': {
+      config.zoom /= 1.2
+      applyZoom()
+      break;
+    }
+    case '-': {
+      config.zoom *= 1.2
+      applyZoom()
+      break;
+    }
+  }
 }
 
 async function run() {
