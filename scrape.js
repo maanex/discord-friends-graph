@@ -16,7 +16,9 @@ async function analyze(user) {
   processed.add(user)
   console.log('-> ' + user)
 
-  const rels = (await fetchUser(user)).filter(u => (!u.type || u.type === 1))
+  const u = (await fetchUser(user))
+  if (!u || !u.length) return
+  const rels = u.filter(u => (!u.type || u.type === 1))
   queue.push(...rels.map(u => u.id))
   out.push(`${user},${rels.map(r => r.id).join(',')}`)
 
@@ -33,7 +35,7 @@ async function fetchUser(id) {
       accept: '*/*',
       'accept-encoding': 'gzip, deflate, br',
       'accept-language': 'en-GB',
-      referer: 'https://discord.com/channels/@me',
+      referer: 'https://canary.discord.com/channels/@me',
       'sec-fetch-dest': 'empty',
       'sec-fetch-mode': 'cors',
       'sec-fetch-site': 'same-origin',
