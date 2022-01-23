@@ -17,7 +17,6 @@ async function analyze(user) {
   console.log('-> ' + user)
 
   const u = (await fetchUser(user))
-  if (!u || !u.length) return
   const rels = u.filter(u => (!u.type || u.type === 1))
   queue.push(...rels.map(u => u.id))
   out.push(`${user},${rels.map(r => r.id).join(',')}`)
@@ -32,6 +31,7 @@ async function fetchUser(id) {
   const { data } = await require('axios').get(`https://canary.discord.com/api/v9/users/${id}/relationships`, {
     headers: {
       authorization: token,
+      accept: '*/*',
       'accept-language': 'en-GB',
       referer: 'https://canary.discord.com/channels/@me',
       'sec-fetch-dest': 'empty',

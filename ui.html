@@ -68,6 +68,14 @@ async function loadRelationships() {
     if (!nodes.includes(id)) nodes.push(id)
   }
 
+  for (const line of csv) {
+    const [ user, ...friends ] = line.split(',')
+    for (friend of friends) {
+      if (friend && !nodes.includes(friend))
+        nodes.push(friend)
+    }
+  }
+
   nodes = nodes.map(id => ({
     id,
     name: getName(id),
@@ -113,22 +121,22 @@ const drag = simulation => {
     event.subject.fx = event.subject.x;
     event.subject.fy = event.subject.y;
   }
-  
+
   function dragged(event) {
     event.subject.fx = event.x;
     event.subject.fy = event.y;
   }
-  
+
   function dragended(event) {
     if (!event.active) simulation.alphaTarget(0);
     event.subject.fx = null;
     event.subject.fy = null;
   }
-  
+
   return d3.drag()
-      .on("start", dragstarted)
-      .on("drag", dragged)
-      .on("end", dragended);
+    .on("start", dragstarted)
+    .on("drag", dragged)
+    .on("end", dragended);
 }
 
 function linkArc(d) {
@@ -144,10 +152,10 @@ function chart(data) {
   const nodes = data.nodes.map(d => Object.create(d));
 
   const simulation = d3.forceSimulation(nodes)
-      .force("link", d3.forceLink(links).id(d => d.id))
-      .force("charge", d3.forceManyBody().strength(-300))
-      .force("x", d3.forceX())
-      .force("y", d3.forceY());
+    .force("link", d3.forceLink(links).id(d => d.id))
+    .force("charge", d3.forceManyBody().strength(-300))
+    .force("x", d3.forceX())
+    .force("y", d3.forceY());
 
   const svg = d3.create("svg")
       .attr("viewBox", [-width / 2, -height / 2, width, height])
