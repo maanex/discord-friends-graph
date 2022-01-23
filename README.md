@@ -1,10 +1,10 @@
 # Running this
 
-Find your user token by going to your discord client devtools -> local storage.
+Find your user token by going to your discord client devtools -> local storage or if you can't find it there look at the Authorization header of any outgoing api request.
 
 1. `npm install`
 2. `node ./scrape.js <user_token>`
-3. `node ./view.js <port>`
+3. `node ./view.js [port]`
 
 alternative to step 3: serve ui.html with a server of your choice.
 
