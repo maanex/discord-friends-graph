@@ -17,5 +17,13 @@ This code is utter trash and all but I can't be bothered cleaning any of this up
 ## buttons
 
 `space bar` toggle names
+
 `+` zoom in
+
 `-` zoom out
+
+## screenshot
+
+![screenshot](https://cdn.discordapp.com/attachments/816810550519660584/934757323547754526/unknown.png)
+
+*(names hidden for privacy)*
