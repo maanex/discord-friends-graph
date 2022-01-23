@@ -32,8 +32,6 @@ async function fetchUser(id) {
   const { data } = await require('axios').get(`https://canary.discord.com/api/v9/users/${id}/relationships`, {
     headers: {
       authorization: token,
-      accept: '*/*',
-      'accept-encoding': 'gzip, deflate, br',
       'accept-language': 'en-GB',
       referer: 'https://canary.discord.com/channels/@me',
       'sec-fetch-dest': 'empty',
