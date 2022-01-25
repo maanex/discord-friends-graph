@@ -81,6 +81,7 @@ async function loadRelationships() {
     name: getName(id),
     affiliates: [],
     totalProp: 1,
+    main: id.startsWith('@'),
     color: (n => {
       return n.startsWith('@') ? 'orange' : 'gray'
     })(id)
@@ -177,12 +178,12 @@ function chart(data) {
 
   const link = svg.append("g")
       .attr("fill", "none")
-      .attr("stroke-width", 1.5)
       .attr('data-type', 'link')
     .selectAll("path")
     .data(links)
     .join("path")
-      .attr("stroke", "lightgray")
+    .attr("stroke-width", a => (a.source.main || a.target.main ? 0.5 : 1.5))
+    .attr('stroke', a => (a.source.main || a.target.main ? '#eee' : '#ddd'))
 
   const node = svg.append("g")
       .attr("fill", "currentColor")
@@ -224,7 +225,7 @@ function chart(data) {
         .selectAll('circle')
         .attr("fill", d => d.color)
       link
-        .attr('stroke', 'lightgray')
+        .attr('stroke', a => (a.source.main || a.target.main ? '#eee' : '#ddd'))
         .attr('stroke-width', 1.5)
     })
 
